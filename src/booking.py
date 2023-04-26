@@ -1,7 +1,7 @@
 """
 CS3810: Principles of Database Systems
 Instructor: Thyago Mota
-Student(s): 
+Student(s): Nathan Mead and Mitchell Thompson
 Description: A room reservation system
 """
 
@@ -51,11 +51,22 @@ def db_connect():
 
 # TODO: display all reservations in the system using the information from ReservationsView
 def list_op(conn):
-    pass
+    cur = conn.cursor()
+    cur.execute('SELECT * FROM ReservationsView;')
+    for row in cur.fetchall(): 
+        print(row)
 
 # TODO: reserve a room on a specific date and period, also saving the user who's the reservation is for
 def reserve_op(conn): 
-    pass
+    date = input('Please insert the date of the reservation (yyyy-mm-dd):')
+    abbr = input('Which building (AES, JSS)? ')
+    if (abbr == "AES"):
+        room = input('Which room (210, 220)? ')
+    else:
+        room = 230
+    
+    cur = conn.cursor()
+    cur.execute("EXECUTE NewReservation (%s, %s, %s, %s, %s);")
 
 # TODO: delete a reservation given its code
 def delete_op(conn):
