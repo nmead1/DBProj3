@@ -58,13 +58,16 @@ def db_connect():
 def list_op(conn):
     cur = conn.cursor()
     cur.execute('SELECT * FROM ReservationsView;')
+    print("code |    date    | period |  start   |   end    |  room   |     name")
+    print("-----+------------+--------+----------+----------+---------+---------------")
     for row in cur.fetchall(): 
         code, date, period, start, end, room, name = row
-        print(f"{code},{date},{period},{start},{end},{room},{name}")
+        print(f"{code:5d} | {date} | {period:6s} | {start} | {end} | {room:7s} | {name}")
 
 # TODO: reserve a room on a specific date and period, also saving the user who's the reservation is for
 def reserve_op(conn): 
     name = input('Please enter the name for the booking: ')
+    name = name.title()
     sql = "SELECT name FROM Users WHERE name = '" + name + "';"
     cur = conn.cursor()
     cur.execute(sql)
@@ -124,17 +127,49 @@ def reserve_op(conn):
     cur.execute("EXECUTE QueryReservationExists (%s, %s, %s, %s);", (abbr.upper(), room, date, period.upper()))
     result = cur.fetchall()
     if len(result) > 0:
-        print("I'm sorry. This room is already booked for that date and time")
+        print("I'm sorry. This room is already booked for that date and time.\n")
     else:
         cur.execute("EXECUTE NewReservation (%s, %s, %s, %s, %s);", (abbr.upper(), room, date, period.upper(), user))
-        print('Your booking was successful!')
+        print('Your booking was successful!\n')
     conn.commit()
     cur.close()
 
 
 # TODO: delete a reservation given its code
 def delete_op(conn):
-    pass
+    reservation_codes = []
+    name = input('Please enter the name on the booking: ')
+    name = name.title()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM ReservationsView WHERE name = '" + name + "';")
+    result = cur.fetchall()
+    if len(result) > 0:
+        cur.execute("SELECT * FROM ReservationsView WHERE name = '" + name + "';")
+        print("code |    date    | period |  start   |   end    |  room   |     name")
+        print("-----+------------+--------+----------+----------+---------+---------------")
+        for row in cur.fetchall(): 
+            code, date, period, start, end, room, name = row
+            print(f"{code:5d} | {date} | {period:6s} | {start} | {end} | {room:7s} | {name}")
+            reservation_codes.append(code)
+        end = False
+        while not end:
+            code = input('? ')
+            if int(code) in reservation_codes:
+                cur.execute("EXECUTE QueryReservationExistsByCode (%s);", (code,))
+                result = cur.fetchall()
+                if len(result) > 0:
+                    end = True
+                    cur.execute("EXECUTE DeleteReservation (%s);", (code,))
+                    print("The booking was successfully deleted!\n")
+                else: 
+                    print('Invalid entry, please try again!')
+            else:
+                print('Invalid entry, please try again!')
+
+    else:
+        print('No bookings were found under ' + name + '.\n')
+
+    
 
 if __name__ == "__main__":
     with db_connect() as conn: 
