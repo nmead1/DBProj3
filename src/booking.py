@@ -35,8 +35,8 @@ def db_connect():
         ''')
         cur.execute('''
             PREPARE NewReservation AS 
-                INSERT INTO Reservations (abbr, room, date, period) VALUES
-                ($1, $2, $3, $4);
+                INSERT INTO Reservations (abbr, room, date, period, "user") VALUES
+                ($1, $2, $3, $4, $5);
         ''')
         cur.execute('''
             PREPARE UpdateReservationUser AS 
@@ -59,15 +59,74 @@ def list_op(conn):
 
 # TODO: reserve a room on a specific date and period, also saving the user who's the reservation is for
 def reserve_op(conn): 
-    date = input('Please insert the date of the reservation (yyyy-mm-dd):')
-    abbr = input('Which building (AES, JSS)? ')
-    if (abbr == "AES"):
-        room = input('Which room (210, 220)? ')
-    else:
-        room = 230
-    
+    name = input('Please enter the name for the booking: ')
+    sql = "SELECT name FROM Users WHERE name = '" + name + "';"
     cur = conn.cursor()
-    cur.execute("EXECUTE NewReservation (%s, %s, %s, %s, %s);")
+    cur.execute(sql)
+    result = cur.fetchall()
+    if len(result) > 0:
+        sql = "SELECT \"user\" FROM Users WHERE name = '" + name + "';"
+        cur.execute(sql)
+        result = cur.fetchall()
+        user = result[0][0]
+    else: 
+        sql = "INSERT INTO Users (name) VALUES ('" + name + "');"
+        cur.execute(sql)
+        sql = "SELECT \"user\" FROM Users WHERE name = '" + name + "';"
+        cur.execute(sql)
+        result = cur.fetchall()
+        user = result[0][0]
+    end = False
+    while not end:
+        date = input('Please insert the date of the booking (yyyy-mm-dd):')
+        if (len(date) != 10):
+            print("Invalid entry, please try again")
+        else:
+            end = True
+    end = False
+    while not end:
+        abbr = input('Which building (AES, JSS)? ')
+        if abbr.upper() == "AES":
+            end = True
+            ended = False
+            while not ended:
+                room = input('Which room (210, 220)? ')
+                if room.isdigit() and (int(room) == 210 or int(room) == 220):
+                    ended = True
+                else:
+                    print("Invalid entry, please try again!")
+        elif abbr.upper() == "JSS":
+            end = True
+            room = 230
+        else:
+            print('Invalid entry, please try again');
+    end = False
+    while not end:
+        print('Please pick a time slot between the following options:')
+        print('(Insert the letter associated with each time slot)')
+        print('A: 6:00 - 8:00')
+        print('B: 8:00 - 10:00')
+        print('C: 10:00 - 12:00')
+        print('D: 12:00 - 14:00')
+        print('E: 14:00 - 16:00')
+        print('F: 16:00 - 18:00')
+        print('G: 18:00 - 20:00')
+        print('H: 20:00 - 22:00')
+        period = input('? ')
+        if(period.upper() != "A" and period.upper() != "B" and period.upper() != "C" and period.upper() != "C" and period.upper() != "D" and period.upper() != "E" and period.upper() != "F" and period.upper() != "G" and period.upper() != "H"):
+            print("Invalid entry, please try again")
+        else:
+            end = True
+    cur.execute("EXECUTE QueryReservationExists (%s, %s, %s, %s);", (abbr.upper(), room, date, period.upper()))
+    result = cur.fetchall()
+    if len(result) > 0:
+        print("I'm sorry. This room is already booked for that date and time")
+    else:
+        cur.execute("EXECUTE NewReservation (%s, %s, %s, %s, %s);", (abbr.upper(), room, date, period.upper(), user))
+        print('Your booking was successful!')
+    conn.commit()
+    cur.close()
+
 
 # TODO: delete a reservation given its code
 def delete_op(conn):
