@@ -114,8 +114,8 @@ def reserve_op(conn):
     cur.execute("EXECUTE QueryReservationExists (%s, %s, %s, %s);", (abbr, room, date, period))
     result = cur.fetchall()
     if len(result) > 0:
-        print("I'm sorry. This room is already booked for that date and time.\n")
         conn.rollback()
+        print("I'm sorry. This room is already booked for that date and time.\n")
     else:
         try:
             cur.execute("EXECUTE NewReservation (%s, %s, %s, %s);", (abbr, room, date, period))
@@ -170,13 +170,17 @@ def delete_op(conn):
                 if len(result) > 0:
                     end = True
                     cur.execute("EXECUTE DeleteReservation (%s);", (code,))
+                    conn.commit()
                     print("The booking was successfully deleted!\n")
                 else: 
+                    conn.rollback()
                     print('Invalid entry, please try again!')
             else:
+                conn.rollback()
                 print('Invalid entry, please try again!')
 
     else:
+        conn.rollback()
         print('No bookings were found under ' + name + '.\n')
 
     
