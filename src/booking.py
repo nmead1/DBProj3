@@ -169,19 +169,21 @@ def delete_op(conn):
                 result = cur.fetchall()
                 if len(result) > 0:
                     end = True
-                    cur.execute("EXECUTE DeleteReservation (%s);", (code,))
-                    conn.commit()
-                    print("The booking was successfully deleted!\n")
+                    try:
+                        cur.execute("EXECUTE DeleteReservation (%s);", (code,))
+                        conn.commit()
+                        print("The booking was successfully deleted!\n")
+                    except:
+                        conn.rollback()
+                        print('Reservation could not be deleted!\n')
                 else: 
-                    conn.rollback()
                     print('Invalid entry, please try again!')
             else:
-                conn.rollback()
                 print('Invalid entry, please try again!')
 
     else:
-        conn.rollback()
         print('No bookings were found under ' + name + '.\n')
+    cur.close()
 
     
 
