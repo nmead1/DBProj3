@@ -54,7 +54,8 @@ def list_op(conn):
     cur = conn.cursor()
     cur.execute('SELECT * FROM ReservationsView;')
     for row in cur.fetchall(): 
-        print(row)
+        code, date, period, start, end, room, name = row
+        print(f"{code},{date},{period},{start},{end},{room},{name}")
 
 # TODO: reserve a room on a specific date and period, also saving the user who's the reservation is for
 def reserve_op(conn): 
