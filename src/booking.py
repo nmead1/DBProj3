@@ -47,6 +47,11 @@ def db_connect():
             PREPARE DeleteReservation AS 
                 DELETE FROM Reservations WHERE code = $1;
         ''')
+        cur.execute('''
+            PREPARE NewUser AS 
+                INSERT INTO Users (name) VALUES
+                ($1);
+        ''')
     return conn
 
 # TODO: display all reservations in the system using the information from ReservationsView
@@ -70,8 +75,7 @@ def reserve_op(conn):
         result = cur.fetchall()
         user = result[0][0]
     else: 
-        sql = "INSERT INTO Users (name) VALUES ('" + name + "');"
-        cur.execute(sql)
+        cur.execute("EXECUTE NewUser (%s);", (name,))
         sql = "SELECT \"user\" FROM Users WHERE name = '" + name + "';"
         cur.execute(sql)
         result = cur.fetchall()
