@@ -21,6 +21,7 @@ def db_connect():
     config.read('ConfigFile.properties')
     params = dict(config.items('db'))
     conn = psycopg2.connect(**params)
+    conn.isolation_level = extensions.ISOLATION_LEVEL_SERIALIZABLE
     conn.autocommit = False 
     with conn.cursor() as cur: 
         cur.execute('''
@@ -35,8 +36,8 @@ def db_connect():
         ''')
         cur.execute('''
             PREPARE NewReservation AS 
-                INSERT INTO Reservations (abbr, room, date, period, "user") VALUES
-                ($1, $2, $3, $4, $5);
+                INSERT INTO Reservations (abbr, room, date, period) VALUES
+                ($1, $2, $3, $4);
         ''')
         cur.execute('''
             PREPARE UpdateReservationUser AS 
@@ -66,23 +67,7 @@ def list_op(conn):
 
 # TODO: reserve a room on a specific date and period, also saving the user who's the reservation is for
 def reserve_op(conn): 
-    name = input('Please enter the name for the booking: ')
-    name = name.title()
-    sql = "SELECT name FROM Users WHERE name = '" + name + "';"
     cur = conn.cursor()
-    cur.execute(sql)
-    result = cur.fetchall()
-    if len(result) > 0:
-        sql = "SELECT \"user\" FROM Users WHERE name = '" + name + "';"
-        cur.execute(sql)
-        result = cur.fetchall()
-        user = result[0][0]
-    else: 
-        cur.execute("EXECUTE NewUser (%s);", (name,))
-        sql = "SELECT \"user\" FROM Users WHERE name = '" + name + "';"
-        cur.execute(sql)
-        result = cur.fetchall()
-        user = result[0][0]
     end = False
     while not end:
         date = input('Please insert the date of the booking (yyyy-mm-dd):')
@@ -90,23 +75,6 @@ def reserve_op(conn):
             print("Invalid entry, please try again")
         else:
             end = True
-    end = False
-    while not end:
-        abbr = input('Which building (AES, JSS)? ')
-        if abbr.upper() == "AES":
-            end = True
-            ended = False
-            while not ended:
-                room = input('Which room (210, 220)? ')
-                if room.isdigit() and (int(room) == 210 or int(room) == 220):
-                    ended = True
-                else:
-                    print("Invalid entry, please try again!")
-        elif abbr.upper() == "JSS":
-            end = True
-            room = 230
-        else:
-            print('Invalid entry, please try again');
     end = False
     while not end:
         print('Please pick a time slot between the following options:')
@@ -120,18 +88,60 @@ def reserve_op(conn):
         print('G: 18:00 - 20:00')
         print('H: 20:00 - 22:00')
         period = input('? ')
-        if(period.upper() != "A" and period.upper() != "B" and period.upper() != "C" and period.upper() != "C" and period.upper() != "D" and period.upper() != "E" and period.upper() != "F" and period.upper() != "G" and period.upper() != "H"):
+        period = period.upper()
+        if(period != "A" and period != "B" and period != "C" and period != "C" and period != "D" and period != "E" and period != "F" and period != "G" and period != "H"):
             print("Invalid entry, please try again")
         else:
             end = True
-    cur.execute("EXECUTE QueryReservationExists (%s, %s, %s, %s);", (abbr.upper(), room, date, period.upper()))
+    end = False
+    while not end:
+        abbr = input('Which building (AES, JSS)? ')
+        abbr = abbr.upper()
+        if abbr == "AES":
+            end = True
+            ended = False
+            while not ended:
+                room = input('Which room (210, 220)? ')
+                if room.isdigit() and (int(room) == 210 or int(room) == 220):
+                    ended = True
+                else:
+                    print("Invalid entry, please try again!")
+        elif abbr == "JSS":
+            end = True
+            room = 230
+        else:
+            print('Invalid entry, please try again');
+    cur.execute("EXECUTE QueryReservationExists (%s, %s, %s, %s);", (abbr, room, date, period))
     result = cur.fetchall()
     if len(result) > 0:
         print("I'm sorry. This room is already booked for that date and time.\n")
+        conn.rollback()
     else:
-        cur.execute("EXECUTE NewReservation (%s, %s, %s, %s, %s);", (abbr.upper(), room, date, period.upper(), user))
-        print('Your booking was successful!\n')
-    conn.commit()
+        try:
+            cur.execute("EXECUTE NewReservation (%s, %s, %s, %s);", (abbr, room, date, period))
+            name = input('Please enter the name for the booking: ')
+            name = name.title()
+            sql = "SELECT name FROM Users WHERE name = '" + name + "';"
+            cur.execute(sql)
+            result = cur.fetchall()
+            if len(result) > 0:
+                sql = "SELECT \"user\" FROM Users WHERE name = '" + name + "';"
+                cur.execute(sql)
+                result = cur.fetchall()
+                user = result[0][0]
+            else: 
+                cur.execute("EXECUTE NewUser (%s);", (name,))
+                sql = "SELECT \"user\" FROM Users WHERE name = '" + name + "';"
+                cur.execute(sql)
+                result = cur.fetchall()
+                user = result[0][0]
+            cur.execute("EXECUTE UpdateReservationUser (%s, %s, %s, %s, %s);", (user, abbr, room, date, period))
+            conn.commit()
+            print('Your booking was successful!\n')
+        except Exception:
+            conn.rollback()
+            print('Reservation could not be secured')
+    
     cur.close()
 
 
